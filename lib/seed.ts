@@ -15,6 +15,11 @@ export function runSeed() {
   const today = new Date().toISOString().split('T')[0];
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
+  const toAccountNumber = (name: string, seq: number) => {
+    const root = name.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6).padEnd(6, 'X');
+    return `${root}${String(seq).padStart(3, '0')}`;
+  };
+
   // ── YARDS ──────────────────────────────────────────────────────────────────
   const insertYard = db.prepare(`INSERT INTO yards (name, address, lat, lng, service_radius_km, skip_stock) VALUES (?, ?, ?, ?, ?, ?)`);
   const yards = [
@@ -121,6 +126,169 @@ export function runSeed() {
   ];
   for (const c of customerData) insertCustomer.run(c.name, c.email, c.ph, c.addr, c.lat, c.lng, c.type);
 
+  // ── EWC CODES ─────────────────────────────────────────────────────────────
+  const insertEwc = db.prepare(`INSERT INTO ewc_codes (code, description, hazardous, is_active) VALUES (?, ?, ?, ?)`);
+  const ewcCodes = [
+    ['17 09 04', 'Mixed construction and demolition wastes', 0],
+    ['20 03 01', 'Mixed municipal waste', 0],
+    ['20 02 01', 'Biodegradable waste', 0],
+    ['17 01 07', 'Mixtures of concrete, bricks, tiles and ceramics', 0],
+    ['20 03 07', 'Bulky waste', 0],
+    ['17 02 01', 'Wood', 0],
+    ['17 02 02', 'Glass', 0],
+    ['17 02 03', 'Plastic', 0],
+    ['17 04 05', 'Iron and steel', 0],
+    ['20 01 36', 'Discarded electrical and electronic equipment', 0],
+    ['20 01 27*', 'Paint, inks, adhesives and resins', 1],
+    ['15 01 10*', 'Packaging containing hazardous substances', 1],
+    ['17 05 03*', 'Soil and stones containing hazardous substances', 1],
+    ['20 01 21*', 'Fluorescent tubes and other mercury-containing waste', 1],
+    ['16 01 07*', 'Oil filters', 1],
+  ] as const;
+  for (const [code, description, hazardous] of ewcCodes) {
+    insertEwc.run(code, description, hazardous, 1);
+  }
+
+  // ── SERVICES ──────────────────────────────────────────────────────────────
+  const insertService = db.prepare(`
+    INSERT INTO services (name, container_type, skip_size_yards, default_price_gbp, default_ewc_code_id, vat_rate, is_active)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  const services = [
+    ['2 Yard Mini Skip', 'skip', 2, 90],
+    ['4 Yard Mini Skip', 'skip', 4, 120],
+    ['6 Yard Midi Skip', 'skip', 6, 150],
+    ["8 Yard Builder's Skip", 'skip', 8, 180],
+    ['10 Yard Skip', 'skip', 10, 210],
+    ['12 Yard Skip', 'skip', 12, 240],
+    ['14 Yard Large Skip', 'skip', 14, 270],
+    ['16 Yard Large Skip', 'skip', 16, 300],
+    ['20 Yard RoRo', 'roro', 20, 380],
+    ['30 Yard RoRo', 'roro', 30, 450],
+    ['40 Yard RoRo', 'roro', 40, 520],
+    ['Wait & Load', 'tipper', null, 350],
+  ] as const;
+  for (let i = 0; i < services.length; i++) {
+    const s = services[i];
+    const defaultEwcId = (i % ewcCodes.length) + 1;
+    insertService.run(s[0], s[1], s[2], s[3], defaultEwcId, 20, 1);
+  }
+
+  // ── CUSTOMER FLAGS & ACCOUNT SETTINGS ────────────────────────────────────
+  const allCustomers = db.prepare('SELECT id, name, email, phone, address FROM customers ORDER BY id ASC').all() as Array<any>;
+  const onStopIds = new Set([3, 15]);
+  const poMandatoryIds = new Set([1, 3, 5, 7, 9]);
+  for (let i = 0; i < allCustomers.length; i++) {
+    const customer = allCustomers[i];
+    const customerType = i < 10 ? 'cash' : 'account';
+    const addressParts = String(customer.address).split(',').map((v: string) => v.trim());
+    const postcode = addressParts[addressParts.length - 1] || '';
+    const town = addressParts.length > 1 ? addressParts[addressParts.length - 2] : '';
+    const addressLine1 = addressParts[0] || customer.address;
+    const addressLine2 = addressParts.slice(1, Math.max(1, addressParts.length - 2)).join(', ');
+
+    db.prepare(`
+      UPDATE customers
+      SET customer_type = ?,
+          on_stop = ?,
+          do_not_invoice = ?,
+          po_mandatory = ?,
+          weigh_all_skip_jobs = ?,
+          payment_terms_days = ?,
+          credit_limit_gbp = ?,
+          batch_option = ?,
+          invoice_method = ?,
+          invoice_email = ?,
+          account_number = ?,
+          phone_main = ?,
+          phone_mobile = ?,
+          contact_email = ?,
+          address_line1 = ?,
+          address_line2 = ?,
+          town = ?,
+          county = ?,
+          postcode = ?,
+          payment_method = ?,
+          notes = ?
+      WHERE id = ?
+    `).run(
+      customerType,
+      onStopIds.has(customer.id) ? 1 : 0,
+      customerType === 'cash' && i % 3 === 0 ? 1 : 0,
+      poMandatoryIds.has(customer.id) ? 1 : 0,
+      i % 6 === 0 ? 1 : 0,
+      customerType === 'cash' ? 0 : 30,
+      customerType === 'cash' ? 0 : 5000 + (i * 500),
+      customerType === 'cash' ? 'cash' : (i % 4 === 0 ? 'account_and_cash' : 'account'),
+      i % 5 === 0 ? 'both' : 'email',
+      customer.email,
+      toAccountNumber(customer.name, i + 1),
+      customer.phone,
+      customer.phone,
+      customer.email,
+      addressLine1,
+      addressLine2,
+      town,
+      'Greater London',
+      postcode,
+      customerType === 'cash' ? 'cash' : 'bacs',
+      i % 7 === 0 ? 'Key commercial account' : null,
+      customer.id
+    );
+  }
+
+  // ── AGREEMENTS (2 PER CUSTOMER MIN) ──────────────────────────────────────
+  const insertAgreement = db.prepare(`
+    INSERT INTO agreements (
+      customer_id, yard_id, site_name, site_address, site_lat, site_lng, service_id,
+      default_ewc_code_id, standard_price_gbp, is_permanent_site, skip_currently_on_site,
+      skip_delivered_date, notes, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const customerRows = db.prepare('SELECT id, name, address, lat, lng FROM customers ORDER BY id').all() as Array<any>;
+  for (const customer of customerRows) {
+    const serviceA = ((customer.id - 1) % 11) + 1;
+    const serviceB = ((customer.id + 3) % 11) + 1;
+    const ewcA = ((customer.id - 1) % 15) + 1;
+    const ewcB = ((customer.id + 2) % 15) + 1;
+    const yardId = ((customer.id - 1) % 3) + 1;
+
+    insertAgreement.run(
+      customer.id,
+      yardId,
+      'Main Site',
+      customer.address,
+      customer.lat,
+      customer.lng,
+      serviceA,
+      ewcA,
+      [90,120,150,180,210,240,270,300,380,450,520][serviceA - 1],
+      customer.id % 8 === 0 ? 1 : 0,
+      0,
+      null,
+      'Primary serviced location',
+      'active'
+    );
+
+    insertAgreement.run(
+      customer.id,
+      yardId,
+      'Secondary Site',
+      `${customer.address} (Rear Yard)`,
+      Number(customer.lat) + 0.004,
+      Number(customer.lng) + 0.004,
+      serviceB,
+      ewcB,
+      [90,120,150,180,210,240,270,300,380,450,520][serviceB - 1],
+      0,
+      0,
+      null,
+      'Secondary project location',
+      'active'
+    );
+  }
+
   // ── BOOKINGS ──────────────────────────────────────────────────────────────
   const insertBooking = db.prepare(`INSERT INTO bookings (customer_id, yard_id, booking_date, job_type, skip_size, preferred_time_slot, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
   const bookingData = [
@@ -206,6 +374,77 @@ export function runSeed() {
     insertJob.run(j.bid, j.yid, j.did, j.vid, j.type, j.status, j.cn, j.cp, j.addr, j.lat, j.lng, j.size, j.notes, today, j.time, j.seq, j.rid);
   }
 
+  // Link all jobs to agreements and enrich pricing/payment fields
+  const jobs = db.prepare('SELECT id, customer_name, skip_size, type, status, address FROM jobs ORDER BY id').all() as Array<any>;
+  const customerByName = new Map((db.prepare('SELECT id, name, customer_type FROM customers').all() as Array<any>).map((c) => [c.name, c]));
+  const agreementForCustomerStmt = db.prepare('SELECT * FROM agreements WHERE customer_id = ? ORDER BY id');
+  const serviceBySize = new Map((db.prepare('SELECT id, skip_size_yards, default_price_gbp, vat_rate, default_ewc_code_id FROM services').all() as Array<any>).map((s) => [s.skip_size_yards ?? -1, s]));
+
+  for (const job of jobs) {
+    const customer = customerByName.get(job.customer_name);
+    if (!customer) continue;
+    const agreements = agreementForCustomerStmt.all(customer.id) as Array<any>;
+    if (!agreements.length) continue;
+
+    const linkedAgreement = agreements[job.id % agreements.length];
+    const service = serviceBySize.get(job.skip_size) || serviceBySize.get(-1);
+    const price = Number(linkedAgreement.standard_price_gbp ?? service?.default_price_gbp ?? 0);
+    const vatRate = Number(service?.vat_rate ?? 20);
+    const vat = Number(((price * vatRate) / 100).toFixed(2));
+    const total = Number((price + vat).toFixed(2));
+    const paymentMethod = customer.customer_type === 'cash' ? 'cash' : 'account';
+    const isPaid = customer.customer_type === 'cash' && job.status === 'completed' ? 1 : 0;
+
+    db.prepare(`
+      UPDATE jobs
+      SET agreement_id = ?,
+          service_id = ?,
+          ewc_code_id = ?,
+          price_gbp = ?,
+          vat_rate = ?,
+          vat_gbp = ?,
+          total_gbp = ?,
+          payment_method = ?,
+          is_paid = ?,
+          paid_date = ?,
+          requested_by = ?,
+          po_number = ?,
+          weight_kg = ?,
+          time_slot = ?
+      WHERE id = ?
+    `).run(
+      linkedAgreement.id,
+      linkedAgreement.service_id,
+      linkedAgreement.default_ewc_code_id,
+      price,
+      vatRate,
+      vat,
+      total,
+      paymentMethod,
+      isPaid,
+      isPaid ? today : null,
+      'Site Supervisor',
+      customer.id % 5 === 0 ? `PO-${customer.id}-${job.id}` : null,
+      customer.id % 6 === 0 ? 1200 + (job.id * 10) : null,
+      ['AM', 'PM', 'Anytime'][job.id % 3],
+      job.id
+    );
+  }
+
+  // Mark 20 agreements as currently on site across all yards
+  const agreementsAll = db.prepare('SELECT id FROM agreements ORDER BY id').all() as Array<{ id: number }>;
+  agreementsAll.slice(0, 20).forEach((agreement, idx) => {
+    const deliveredDaysAgo = (idx % 40) + 1;
+    const deliveredDate = new Date(Date.now() - deliveredDaysAgo * 86400000).toISOString().split('T')[0];
+    db.prepare(`
+      UPDATE agreements
+      SET skip_currently_on_site = 1,
+          skip_delivered_date = ?,
+          is_permanent_site = CASE WHEN ? % 5 = 0 THEN 1 ELSE is_permanent_site END
+      WHERE id = ?
+    `).run(deliveredDate, idx, agreement.id);
+  });
+
   // Update completed_at for completed jobs
   db.prepare(`UPDATE jobs SET completed_at = datetime('now', '-2 hours') WHERE status = 'completed'`).run();
 
@@ -255,6 +494,47 @@ export function runSeed() {
     const vat = Math.round(inv.amt * 0.2 * 100) / 100;
     const total = inv.amt + vat;
     insertInvoice.run(inv.cid, inv.jid, inv.amt, vat, total, inv.status, inv.issued, inv.due, inv.notes);
+  }
+
+  // Auto-wire existing invoices to jobs for compatibility with batch logic
+  db.prepare(`
+    UPDATE jobs
+    SET invoice_id = (
+      SELECT i.id FROM invoices i WHERE i.job_id = jobs.id LIMIT 1
+    ),
+    invoiced = CASE WHEN EXISTS (SELECT 1 FROM invoices i WHERE i.job_id = jobs.id) THEN 1 ELSE 0 END
+  `).run();
+
+  // ── PERMITS ───────────────────────────────────────────────────────────────
+  const permitStatuses = ['applied', 'approved', 'rejected', 'expired', 'not_required', 'applied', 'approved', 'applied'];
+  const permitJobs = db.prepare('SELECT id, agreement_id, address FROM jobs ORDER BY id LIMIT 8').all() as Array<any>;
+  const insertPermit = db.prepare(`
+    INSERT INTO permits (
+      job_id, customer_id, site_address, local_authority, permit_type,
+      application_date, start_date, end_date, status, permit_reference, notes
+    ) VALUES (?, ?, ?, ?, 'skip_on_highway', ?, ?, ?, ?, ?, ?)
+  `);
+
+  for (let i = 0; i < permitJobs.length; i++) {
+    const job = permitJobs[i];
+    const agreement = db.prepare('SELECT customer_id FROM agreements WHERE id = ?').get(job.agreement_id) as { customer_id: number } | undefined;
+    const appDate = new Date(Date.now() - (i + 2) * 86400000).toISOString().split('T')[0];
+    const startDate = new Date(Date.now() + i * 86400000).toISOString().split('T')[0];
+    const endDate = new Date(Date.now() + (i + 7) * 86400000).toISOString().split('T')[0];
+    const status = permitStatuses[i];
+    const result = insertPermit.run(
+      job.id,
+      agreement?.customer_id ?? 1,
+      job.address,
+      ['London Borough of Enfield', 'London Borough of Croydon', 'London Borough of Barking and Dagenham'][i % 3],
+      appDate,
+      startDate,
+      endDate,
+      status,
+      status === 'approved' ? `PERMIT-${1000 + i}` : null,
+      'Seeded permit record'
+    );
+    db.prepare('UPDATE jobs SET highway_placement = 1, permit_id = ? WHERE id = ?').run(result.lastInsertRowid, job.id);
   }
 
   // ── WASTE RECORDS ─────────────────────────────────────────────────────────
