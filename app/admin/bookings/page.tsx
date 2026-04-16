@@ -3,17 +3,24 @@
 import { useEffect, useState } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { JobCreationWizard } from '@/components/jobs/JobCreationWizard'
 
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<any[]>([])
   const [filter, setFilter] = useState('all')
 
-  useEffect(() => { fetch('/api/bookings').then(r => r.json()).then(setBookings) }, [])
+  const load = () => fetch('/api/bookings').then(r => r.json()).then(setBookings)
+  useEffect(() => { load() }, [])
 
   const filtered = filter === 'all' ? bookings : bookings.filter(b => b.status === filter)
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-6">
+      <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 className="text-xl font-semibold mb-3">Create Job</h2>
+        <JobCreationWizard originLabel="Admin Bookings" onSaved={load} />
+      </section>
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Bookings</h1>
         <Select value={filter} onValueChange={v => setFilter(v ?? 'all')}>
