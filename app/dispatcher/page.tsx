@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import { List, Map, RefreshCw } from 'lucide-react'
 import { JobList } from '@/components/dispatcher/JobList'
 
@@ -29,6 +30,11 @@ interface Job {
   driver_id: number | null
   lat: number
   lng: number
+  po_number?: string | null
+  payment_method?: string | null
+  is_paid?: number
+  permit_status?: string | null
+  highway_placement?: number
 }
 
 interface GpsPosition {
@@ -48,6 +54,16 @@ interface Yard {
   lng: number
 }
 
+interface SkipOnSite {
+  id: number
+  customer_name: string
+  site_address: string
+  site_lat: number
+  site_lng: number
+  days_on_site: number
+  skip_size_yards: number | null
+}
+
 type ViewMode = 'split' | 'list' | 'map'
 
 export default function DispatcherPage() {
@@ -57,6 +73,8 @@ export default function DispatcherPage() {
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('split')
   const [lastRefresh, setLastRefresh] = useState(new Date())
+  const [showSkipsOnSite, setShowSkipsOnSite] = useState(false)
+  const [skipsOnSite, setSkipsOnSite] = useState<SkipOnSite[]>([])
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -79,6 +97,11 @@ export default function DispatcherPage() {
   }
 
   useEffect(() => { loadData() }, [today])
+
+  useEffect(() => {
+    if (!showSkipsOnSite) return
+    fetch('/api/skips-on-site').then(r => r.json()).then(setSkipsOnSite).catch(() => setSkipsOnSite([]))
+  }, [showSkipsOnSite])
 
   // GPS polling every 5 seconds
   useEffect(() => {
@@ -152,6 +175,17 @@ export default function DispatcherPage() {
             </button>
           ))}
         </div>
+
+        <Link href="/admin/bookings" className="ml-2 px-3 py-1.5 rounded-md text-xs font-semibold border bg-white border-slate-200 text-slate-700 hover:bg-slate-50">
+          Add Job
+        </Link>
+
+        <button
+          onClick={() => setShowSkipsOnSite((v) => !v)}
+          className={`ml-2 px-3 py-1.5 rounded-md text-xs font-semibold border ${showSkipsOnSite ? 'bg-emerald-100 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 text-slate-600'}`}
+        >
+          Show Skips On Site
+        </button>
       </div>
 
       {/* Content */}
@@ -173,6 +207,7 @@ export default function DispatcherPage() {
               jobs={memoJobs}
               gpsPositions={memoGps}
               yards={yards}
+              skipsOnSite={showSkipsOnSite ? skipsOnSite : []}
             />
           </div>
         )}

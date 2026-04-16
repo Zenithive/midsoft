@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -79,7 +80,7 @@ export default function DriversPage() {
       </div>
       <Table>
         <TableHeader>
-          <TableRow><TableHead>Name</TableHead><TableHead>Yard</TableHead><TableHead>Phone</TableHead><TableHead>Licence</TableHead><TableHead>Shift</TableHead><TableHead>Status</TableHead></TableRow>
+          <TableRow><TableHead>Name</TableHead><TableHead>Yard</TableHead><TableHead>Phone</TableHead><TableHead>Licence</TableHead><TableHead>Shift</TableHead><TableHead>Status</TableHead><TableHead></TableHead></TableRow>
         </TableHeader>
         <TableBody>
           {drivers.map(d => (
@@ -90,6 +91,9 @@ export default function DriversPage() {
               <TableCell>{d.licence_class}</TableCell>
               <TableCell>{d.shift_start}–{d.shift_end}</TableCell>
               <TableCell><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[d.status] || ''}`}>{d.status.replace('_',' ')}</span></TableCell>
+              <TableCell>
+                <Link className="text-xs underline" href={`/admin/drivers/${d.id}`}>Daily schedule</Link>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
