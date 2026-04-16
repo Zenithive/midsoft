@@ -2,9 +2,19 @@
 
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Bell, ChevronRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Bell, ChevronRight, MapPin, Clock } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+const PAGE_LABELS: Record<string, string> = {
+  dispatcher: 'Dispatcher Dashboard',
+  optimizer: 'Route Optimizer',
+  driver: 'Driver View',
+  customer: 'Customer Portal',
+  admin: 'Admin Panel',
+  reports: 'Reports',
+  compliance: 'Compliance',
+  telematics: 'Fleet Telematics',
+}
 
 export function Navbar() {
   const pathname = usePathname()
@@ -12,88 +22,74 @@ export function Navbar() {
   const [yards, setYards] = useState<any[]>([])
   const [selectedYard, setSelectedYard] = useState<string>('')
 
-  // Live clock
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 1000)
+    const interval = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(interval)
   }, [])
 
-  // Load yards
   useEffect(() => {
-    fetch('/api/yards')
-      .then(res => res.json())
-      .then(data => {
-        setYards(data)
-        if (data.length > 0) {
-          setSelectedYard(data[0].id.toString())
-        }
-      })
-      .catch(console.error)
+    fetch('/api/yards').then(r => r.json()).then(data => {
+      setYards(data)
+      if (data.length > 0) setSelectedYard(data[0].id.toString())
+    }).catch(console.error)
   }, [])
 
-  // Generate breadcrumbs from pathname
-  const generateBreadcrumbs = () => {
-    const segments = pathname.split('/').filter(Boolean)
-    const breadcrumbs = [{ label: 'Home', href: '/' }]
-    
-    let currentPath = ''
-    segments.forEach(segment => {
-      currentPath += `/${segment}`
-      const label = segment.charAt(0).toUpperCase() + segment.slice(1)
-      breadcrumbs.push({ label, href: currentPath })
-    })
-    
-    return breadcrumbs
-  }
+  const segments = pathname.split('/').filter(Boolean)
+  const pageKey = segments[0] || 'home'
+  const pageLabel = PAGE_LABELS[pageKey] || pageKey.charAt(0).toUpperCase() + pageKey.slice(1)
 
-  const breadcrumbs = generateBreadcrumbs()
+  const timeStr = currentTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  const dateStr = currentTime.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
 
   return (
-    <header className="bg-white border-b border-slate-200 px-6 py-4">
-      <div className="flex items-center justify-between">
-        {/* Breadcrumbs */}
-        <nav className="flex items-center space-x-2 text-sm">
-          {breadcrumbs.map((crumb, index) => (
-            <div key={crumb.href} className="flex items-center">
-              {index > 0 && <ChevronRight className="h-4 w-4 text-slate-400 mx-2" />}
-              <span className={index === breadcrumbs.length - 1 ? 'text-slate-900 font-medium' : 'text-slate-500'}>
-                {crumb.label}
-              </span>
-            </div>
-          ))}
-        </nav>
+    <header className="h-14 bg-white border-b border-slate-100 px-6 flex items-center justify-between flex-shrink-0 shadow-sm">
+      {/* Left: breadcrumb */}
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-slate-400">Home</span>
+        {segments.map((seg, i) => (
+          <span key={i} className="flex items-center gap-2">
+            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+            <span className={i === segments.length - 1 ? 'text-slate-800 font-semibold' : 'text-slate-400'}>
+              {PAGE_LABELS[seg] || seg.charAt(0).toUpperCase() + seg.slice(1)}
+            </span>
+          </span>
+        ))}
+      </div>
 
-        {/* Right side */}
-        <div className="flex items-center space-x-4">
-          {/* Live clock */}
-          <div className="text-sm text-slate-600">
-            {currentTime.toLocaleTimeString()}
-          </div>
+      {/* Right: controls */}
+      <div className="flex items-center gap-3">
+        {/* Date + time */}
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+          <Clock className="h-3.5 w-3.5 text-slate-400" />
+          <span className="text-xs font-mono text-slate-600">{timeStr}</span>
+          <span className="text-slate-300">·</span>
+          <span className="text-xs text-slate-500">{dateStr}</span>
+        </div>
 
-          {/* Yard filter */}
-          <Select value={selectedYard} onValueChange={(v) => setSelectedYard(v ?? '')}>
-            <SelectTrigger className="w-48">
+        {/* Yard selector */}
+        <div className="flex items-center gap-1.5">
+          <MapPin className="h-3.5 w-3.5 text-slate-400" />
+          <Select value={selectedYard} onValueChange={v => setSelectedYard(v ?? '')}>
+            <SelectTrigger className="h-8 w-44 text-xs border-slate-200 bg-slate-50 focus:ring-blue-500">
               <SelectValue placeholder="Select yard" />
             </SelectTrigger>
             <SelectContent>
               {yards.map(yard => (
-                <SelectItem key={yard.id} value={yard.id.toString()}>
+                <SelectItem key={yard.id} value={yard.id.toString()} className="text-xs">
                   {yard.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-
-          {/* Notifications */}
-          <Button variant="ghost" size="sm" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-              3
-            </span>
-          </Button>
         </div>
+
+        {/* Notifications */}
+        <button className="relative w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-colors">
+          <Bell className="h-4 w-4 text-slate-500" />
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+            3
+          </span>
+        </button>
       </div>
     </header>
   )

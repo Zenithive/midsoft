@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Roboto } from "next/font/google";
 import "./globals.css";
 import { OptionProvider } from '@/components/layout/OptionContext'
 import { Sidebar } from '@/components/layout/Sidebar'
@@ -8,7 +8,6 @@ import { Navbar } from '@/components/layout/Navbar'
 // Only run seed + GPS simulator at runtime, not during build
 if (process.env.NODE_ENV !== 'test' && typeof globalThis.__seedInitialised === 'undefined') {
   globalThis.__seedInitialised = true
-  // Lazy import to avoid running during static build analysis
   import('@/lib/seed').then(({ runSeed }) => {
     try { runSeed() } catch (e) { console.error('[seed] error:', e) }
   })
@@ -17,14 +16,11 @@ if (process.env.NODE_ENV !== 'test' && typeof globalThis.__seedInitialised === '
   })
 }
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const roboto = Roboto({
+  variable: "--font-roboto",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["300", "400", "500", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -40,12 +36,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${roboto.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex">
+      <body className="min-h-full flex bg-slate-50">
         <OptionProvider>
           <Sidebar />
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             <Navbar />
             <main className="flex-1 overflow-auto">
               {children}
