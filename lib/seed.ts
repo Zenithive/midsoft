@@ -6,6 +6,12 @@ export function runSeed() {
   const alreadyRan = db.prepare('SELECT id FROM seed_run WHERE id = 1').get();
   if (alreadyRan) return;
 
+  // Wrap everything in a transaction — safe against concurrent calls
+  const seedTransaction = db.transaction(() => {
+    // Double-check inside transaction
+    const check = db.prepare('SELECT id FROM seed_run WHERE id = 1').get();
+    if (check) return;
+
   const today = new Date().toISOString().split('T')[0];
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
@@ -329,4 +335,8 @@ export function runSeed() {
 
   db.prepare(`INSERT INTO seed_run (id) VALUES (1)`).run();
   console.log('✅ Seed data inserted successfully');
+  }) // close transaction function
+
+  seedTransaction() // execute it
 }
+
