@@ -146,3 +146,8 @@
 /* Smooth page transitions */
 main { animation: fadeIn 0.15s ease-out; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* Ensure navbar and dropdowns always sit above Leaflet map (z-index 400-1000) */
+header { position: relative; z-index: 1001; }
+.leaflet-pane { z-index: 400 !important; }
+.leaflet-top, .leaflet-bottom { z-index: 1000 !important; }
