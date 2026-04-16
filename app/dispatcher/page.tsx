@@ -155,7 +155,7 @@ export default function DispatcherPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden w-full">
 
         {/* List panel — shown in 'list' and 'split' */}
         {(viewMode === 'list' || viewMode === 'split') && (
@@ -168,7 +168,7 @@ export default function DispatcherPage() {
 
         {/* Map panel — shown in 'map' and 'split' */}
         {(viewMode === 'map' || viewMode === 'split') && (
-          <div className="flex-1 relative">
+          <div className="relative flex-1 min-w-0 min-h-0">
             <DispatcherMap
               jobs={memoJobs}
               gpsPositions={memoGps}
