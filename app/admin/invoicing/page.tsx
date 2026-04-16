@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
@@ -27,10 +28,13 @@ export default function InvoicingPage() {
       <Toaster />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Invoicing</h1>
-        <Select value={filter} onValueChange={v => setFilter(v ?? 'all')}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-          <SelectContent>{['all','draft','sent','paid','overdue'].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/invoicing/batch"><Button variant="outline">Batch Invoice Run</Button></Link>
+          <Select value={filter} onValueChange={v => setFilter(v ?? 'all')}>
+            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>{['all','draft','sent','paid','overdue'].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
       </div>
       <Table>
         <TableHeader>

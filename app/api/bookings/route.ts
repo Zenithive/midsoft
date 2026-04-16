@@ -28,6 +28,11 @@ export async function POST(req: NextRequest) {
   }
 
   const db = getDb()
+  const customer = db.prepare('SELECT on_stop FROM customers WHERE id = ?').get(Number(customerId)) as { on_stop?: number } | undefined
+  if (Number(customer?.on_stop ?? 0) === 1) {
+    return NextResponse.json({ error: 'This account is on stop. New jobs cannot be created.' }, { status: 400 })
+  }
+
   const result = db.prepare(`
     INSERT INTO bookings (customer_id, yard_id, booking_date, job_type, skip_size, preferred_time_slot, status, notes, created_at)
     VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now'))
