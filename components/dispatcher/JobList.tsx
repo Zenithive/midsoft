@@ -32,6 +32,11 @@ interface Job {
   driver_id: number | null
   lat: number
   lng: number
+  po_number?: string | null
+  payment_method?: string | null
+  is_paid?: number
+  permit_status?: string | null
+  highway_placement?: number
 }
 
 interface Props {
@@ -103,6 +108,27 @@ function SortableJobCard({ job }: { job: Job }) {
               <span className="flex items-center gap-1 text-[11px] text-slate-400">
                 <Clock className="h-2.5 w-2.5" />{job.scheduled_time}
               </span>
+            )}
+
+            {job.po_number && (
+              <span className="text-[11px] px-2 py-0.5 rounded bg-slate-200 text-slate-700">PO: {job.po_number}</span>
+            )}
+
+            {job.payment_method === 'cash' && Number(job.is_paid) === 1 && (
+              <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">Paid</span>
+            )}
+            {job.payment_method === 'cash' && Number(job.is_paid) !== 1 && (
+              <span className="text-[11px] px-2 py-0.5 rounded bg-amber-100 text-amber-700">Unpaid</span>
+            )}
+            {job.payment_method === 'account' && (
+              <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600">Account</span>
+            )}
+
+            {Number(job.highway_placement) === 1 && job.permit_status === 'approved' && (
+              <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">Permit Approved</span>
+            )}
+            {Number(job.highway_placement) === 1 && job.permit_status !== 'approved' && (
+              <span className="text-[11px] px-2 py-0.5 rounded bg-amber-100 text-amber-700">Permit Required</span>
             )}
           </div>
         </div>

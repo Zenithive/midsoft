@@ -87,6 +87,28 @@ interface Props {
   gpsPositions: GpsPosition[]
   yards: Yard[]
   onJobPinClick?: (job: Job) => void
+  skipsOnSite?: Array<{
+    id: number
+    customer_name: string
+    site_address: string
+    site_lat: number
+    site_lng: number
+    days_on_site: number
+    skip_size_yards: number | null
+  }>
+}
+
+function createSkipIcon(daysOnSite: number) {
+  let color = '#16a34a'
+  if (daysOnSite >= 30) color = '#dc2626'
+  else if (daysOnSite >= 14) color = '#d97706'
+
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:20px;height:20px;border-radius:4px;background:${color};border:2px solid white;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,0.4);font-size:11px">🗑</div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  })
 }
 
 function MapBounds({ yards }: { yards: Yard[] }) {
@@ -100,7 +122,7 @@ function MapBounds({ yards }: { yards: Yard[] }) {
   return null
 }
 
-export default function DispatcherMapInner({ jobs, gpsPositions, yards, onJobPinClick }: Props) {
+export default function DispatcherMapInner({ jobs, gpsPositions, yards, onJobPinClick, skipsOnSite = [] }: Props) {
   const center: [number, number] = yards.length > 0
     ? [yards[0].lat, yards[0].lng]
     : [51.5, -0.1]
@@ -172,6 +194,27 @@ export default function DispatcherMapInner({ jobs, gpsPositions, yards, onJobPin
               <div className="font-semibold">Driver #{pos.driver_id}</div>
               <div>Speed: {Math.round(pos.speed_kmh)} km/h</div>
               <div>Heading: {Math.round(pos.heading)}°</div>
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+
+      {/* Skips-on-site markers */}
+      {skipsOnSite.map(skip => (
+        <Marker
+          key={`skip-on-site-${skip.id}`}
+          position={[Number(skip.site_lat), Number(skip.site_lng)]}
+          icon={createSkipIcon(Number(skip.days_on_site || 0))}
+        >
+          <Popup>
+            <div className="min-w-[200px] text-xs">
+              <div className="font-semibold">{skip.customer_name}</div>
+              <div className="text-gray-500 mt-1">{skip.site_address}</div>
+              <div className="mt-1">{skip.skip_size_yards || '-'}yd • {skip.days_on_site} days on site</div>
+              <div className="flex gap-2 mt-2">
+                <a className="underline" href={`/admin/bookings?agreement_id=${skip.id}&type=collection`}>Schedule Collection</a>
+                <a className="underline" href={`/admin/bookings?agreement_id=${skip.id}&type=exchange`}>Schedule Exchange</a>
+              </div>
             </div>
           </Popup>
         </Marker>
