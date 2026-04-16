@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
 
   const totalJobs = db.prepare('SELECT COUNT(*) as count FROM jobs').get() as any
   const completedJobs = db.prepare("SELECT COUNT(*) as count FROM jobs WHERE status = 'completed'").get() as any
-  const totalRevenue = db.prepare('SELECT SUM(total_gbp) as total FROM invoices WHERE status = "paid"').get() as any
+  const totalRevenue = db.prepare("SELECT SUM(total_gbp) as total FROM invoices WHERE status = 'paid'").get() as any
   const totalDistance = db.prepare('SELECT SUM(total_distance_km) as total FROM routes').get() as any
   const activeDrivers = db.prepare("SELECT COUNT(*) as count FROM drivers WHERE status = 'on_shift'").get() as any
 
