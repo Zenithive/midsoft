@@ -151,3 +151,28 @@ main { animation: fadeIn 0.15s ease-out; }
 header { position: relative; z-index: 1001; }
 .leaflet-pane { z-index: 400 !important; }
 .leaflet-top, .leaflet-bottom { z-index: 1000 !important; }
+
+@media print {
+  aside,
+  header,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:block {
+    display: block !important;
+  }
+
+  main {
+    overflow: visible !important;
+    animation: none !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  .break-after-page {
+    break-after: page;
+  }
+}
